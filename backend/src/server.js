@@ -9,6 +9,8 @@ import { GetCommand, PutCommand, ScanCommand, DeleteCommand, UpdateCommand } fro
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const app = express();
+const router = express.Router();
+
 app.use(cors());
 app.use(express.json());
 
@@ -16,10 +18,10 @@ const TABLE = process.env.DDB_TABLE;
 const BUCKET = process.env.S3_BUCKET;
 
 // Health
-app.get("/health", (_req, res) => res.json({ ok: true }));
+router.get("/health", (_req, res) => res.json({ ok: true }));
 
 // List todos (simple: Scan; for production you'd Query on userId)
-app.get("/todos", async (_req, res) => {
+router.get("/todos", async (_req, res) => {
   try {
     const out = await ddb.send(new ScanCommand({ TableName: TABLE }));
     res.json({ items: out.Items ?? [] });
@@ -29,7 +31,8 @@ app.get("/todos", async (_req, res) => {
 });
 
 // Create todo
-app.post("/todos", async (req, res) => {
+router.post("/todos", async (req, res) => {
+  console.log("Received create todo request:", req.body);
   try {
     const { title } = req.body;
     if (!title?.trim()) return res.status(400).json({ error: "title is required" });
@@ -42,6 +45,8 @@ app.post("/todos", async (req, res) => {
       attachment: null // { key, fileName, contentType }
     };
 
+    console.log("Creating todo:", item);
+
     await ddb.send(new PutCommand({ TableName: TABLE, Item: item }));
     res.status(201).json(item);
   } catch (e) {
@@ -50,7 +55,7 @@ app.post("/todos", async (req, res) => {
 });
 
 // Toggle completed
-app.patch("/todos/:id/toggle", async (req, res) => {
+router.patch("/todos/:id/toggle", async (req, res) => {
   const { id } = req.params;
   try {
     const existing = await ddb.send(new GetCommand({ TableName: TABLE, Key: { id } }));
@@ -72,7 +77,7 @@ app.patch("/todos/:id/toggle", async (req, res) => {
 });
 
 // Delete todo
-app.delete("/todos/:id", async (req, res) => {
+router.delete("/todos/:id", async (req, res) => {
   const { id } = req.params;
   try {
     await ddb.send(new DeleteCommand({ TableName: TABLE, Key: { id } }));
@@ -83,7 +88,7 @@ app.delete("/todos/:id", async (req, res) => {
 });
 
 // Get pre-signed URL for uploading an attachment
-app.post("/todos/:id/attachment-url", async (req, res) => {
+router.post("/todos/:id/attachment-url", async (req, res) => {
   const { id } = req.params;
   const { fileName, contentType } = req.body;
 
@@ -125,5 +130,6 @@ app.post("/todos/:id/attachment-url", async (req, res) => {
   }
 });
 
+app.use("/api", router);
 const port = process.env.PORT || 4000;
 app.listen(port, () => console.log(`API running on http://localhost:${port}`));

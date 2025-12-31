@@ -2,7 +2,6 @@
   "name": "todo-infra",
   "version": "1.0.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "build": "tsc",
     "cdk": "cdk",
@@ -13,7 +12,9 @@
     "constructs": "^10.4.4"
   },
   "devDependencies": {
+    "@types/node": "^25.0.3",
     "aws-cdk": "^2.1100.1",
+    "ts-node": "^10.9.2",
     "typescript": "^5.5.4"
   }
 }

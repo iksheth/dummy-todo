@@ -4,21 +4,29 @@ import { S3Client } from "@aws-sdk/client-s3";
 
 const region = process.env.AWS_REGION || "us-east-1";
 
+// Only local if explicitly turned on
 const isLocal = process.env.USE_LOCALSTACK === "true";
+console.log(`AWS SDK using ${isLocal ? "localstack" : "real AWS"} services`);
 
-export const ddb = DynamoDBDocumentClient.from(
-  new DynamoDBClient({
-    region,
-    endpoint: isLocal ? "http://localhost:8000" : undefined,
-    credentials: isLocal
-      ? { accessKeyId: "test", secretAccessKey: "test" }
-      : undefined
-  })
-);
+const ddbClient = new DynamoDBClient({
+  region,
+  ...(isLocal
+    ? {
+        endpoint: process.env.DDB_ENDPOINT || "http://localhost:8000",
+        credentials: { accessKeyId: "test", secretAccessKey: "test" }
+      }
+    : {})
+});
+
+export const ddb = DynamoDBDocumentClient.from(ddbClient);
 
 export const s3 = new S3Client({
   region,
-  endpoint: isLocal ? "http://localhost:4566" : undefined,
-  forcePathStyle: isLocal, // IMPORTANT for localstack
-  credentials: isLocal ? { accessKeyId: "test", secretAccessKey: "test" } : undefined
+  ...(isLocal
+    ? {
+        endpoint: process.env.S3_ENDPOINT || "http://localhost:4566",
+        forcePathStyle: true,
+        credentials: { accessKeyId: "test", secretAccessKey: "test" }
+      }
+    : {})
 });
