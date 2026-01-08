@@ -92,6 +92,11 @@ export class TodoAppStack extends cdk.Stack {
       conditions: [elbv2.ListenerCondition.pathPatterns(["/api/*"])]
     });
 
+    // Default route -> Backend (for simplicity)
+    listener.addTargetGroups("FrontendDefault", {
+      targetGroups: [backendTg]
+    });
+
     new cdk.CfnOutput(this, "AppUrl", {
       value: `http://${alb.loadBalancerDnsName}`
     });
