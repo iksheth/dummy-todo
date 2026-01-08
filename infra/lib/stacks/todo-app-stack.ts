@@ -48,8 +48,6 @@ export class TodoAppStack extends cdk.Stack {
     });
 
     storage.table.grantReadWriteData(backendTaskRole);
-    storage.bucket.grantPut(backendTaskRole);
-    storage.bucket.grantRead(backendTaskRole);
 
     const backendTaskDef = new ecs.FargateTaskDefinition(this, "BackendTaskDef", {
       cpu: 256,
@@ -66,7 +64,6 @@ export class TodoAppStack extends cdk.Stack {
         PORT: "4000",
         AWS_REGION: this.region,
         DDB_TABLE: storage.table.tableName,
-        S3_BUCKET: storage.bucket.bucketName,
         USE_LOCALSTACK: "false"
       }
     });
@@ -93,47 +90,6 @@ export class TodoAppStack extends cdk.Stack {
       priority: 10,
       targetGroups: [backendTg],
       conditions: [elbv2.ListenerCondition.pathPatterns(["/api/*"])]
-    });
-
-    // ---------------------------
-    // FRONTEND (React via Nginx)
-    // ---------------------------
-    const frontendLogGroup = new logs.LogGroup(this, "FrontendLogs", {
-      retention: logs.RetentionDays.ONE_WEEK
-    });
-
-    const frontendTaskDef = new ecs.FargateTaskDefinition(this, "FrontendTaskDef", {
-      cpu: 256,
-      memoryLimitMiB: 512
-    });
-
-    const frontendContainer = frontendTaskDef.addContainer("FrontendContainer", {
-      image: ecs.ContainerImage.fromAsset("../frontend", {
-        platform: Platform.LINUX_AMD64
-      }), // <-- IMPORTANT
-      logging: ecs.LogDrivers.awsLogs({ logGroup: frontendLogGroup, streamPrefix: "frontend" })
-    });
-
-    frontendContainer.addPortMappings({ containerPort: 80 });
-
-    const frontendService = new ecs.FargateService(this, "FrontendService", {
-      cluster,
-      taskDefinition: frontendTaskDef,
-      desiredCount: 1,
-      assignPublicIp: false
-    });
-
-    const frontendTg = new elbv2.ApplicationTargetGroup(this, "FrontendTg", {
-      vpc,
-      port: 80,
-      protocol: elbv2.ApplicationProtocol.HTTP,
-      targets: [frontendService],
-      healthCheck: { path: "/", healthyHttpCodes: "200-399" }
-    });
-
-    // Default route -> frontend
-    listener.addTargetGroups("FrontendDefault", {
-      targetGroups: [frontendTg]
     });
 
     new cdk.CfnOutput(this, "AppUrl", {

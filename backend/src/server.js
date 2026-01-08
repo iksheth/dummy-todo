@@ -3,10 +3,8 @@ import express from "express";
 import cors from "cors";
 import { nanoid } from "nanoid";
 
-import { ddb, s3 } from "./aws.js";
-import { PutObjectCommand } from "@aws-sdk/client-s3";
+import { ddb } from "./aws.js";
 import { GetCommand, PutCommand, ScanCommand, DeleteCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const app = express();
 const router = express.Router();
@@ -42,7 +40,6 @@ router.post("/todos", async (req, res) => {
       title: title.trim(),
       completed: false,
       createdAt: new Date().toISOString(),
-      attachment: null // { key, fileName, contentType }
     };
 
     console.log("Creating todo:", item);
@@ -84,49 +81,6 @@ router.delete("/todos/:id", async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: "Failed to delete todo", detail: e.message });
-  }
-});
-
-// Get pre-signed URL for uploading an attachment
-router.post("/todos/:id/attachment-url", async (req, res) => {
-  const { id } = req.params;
-  const { fileName, contentType } = req.body;
-
-  if (!fileName || !contentType) {
-    return res.status(400).json({ error: "fileName and contentType required" });
-  }
-
-  try {
-    // Ensure todo exists
-    const existing = await ddb.send(new GetCommand({ TableName: TABLE, Key: { id } }));
-    if (!existing.Item) return res.status(404).json({ error: "Not found" });
-
-    const safeName = fileName.replace(/[^\w.\-()+ ]/g, "_");
-    const key = `attachments/${id}/${Date.now()}-${safeName}`;
-
-    const cmd = new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      ContentType: contentType
-    });
-
-    const uploadUrl = await getSignedUrl(s3, cmd, { expiresIn: 60 });
-
-    // Save attachment metadata in DynamoDB
-    await ddb.send(
-      new UpdateCommand({
-        TableName: TABLE,
-        Key: { id },
-        UpdateExpression: "SET attachment = :a",
-        ExpressionAttributeValues: {
-          ":a": { key, fileName: safeName, contentType }
-        }
-      })
-    );
-
-    res.json({ uploadUrl, key });
-  } catch (e) {
-    res.status(500).json({ error: "Failed to create upload url", detail: e.message });
   }
 });
 

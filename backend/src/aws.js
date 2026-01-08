@@ -1,6 +1,5 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
-import { S3Client } from "@aws-sdk/client-s3";
 
 const region = process.env.AWS_REGION || "us-east-1";
 
@@ -19,14 +18,3 @@ const ddbClient = new DynamoDBClient({
 });
 
 export const ddb = DynamoDBDocumentClient.from(ddbClient);
-
-export const s3 = new S3Client({
-  region,
-  ...(isLocal
-    ? {
-        endpoint: process.env.S3_ENDPOINT || "http://localhost:4566",
-        forcePathStyle: true,
-        credentials: { accessKeyId: "test", secretAccessKey: "test" }
-      }
-    : {})
-});
